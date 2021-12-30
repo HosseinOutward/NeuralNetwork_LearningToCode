@@ -1,44 +1,52 @@
-//training set. [input1, input2, output(s)]
+//training set. [training or unknown, input1, input2, output(s)]
 var data = [
-  [1,   0.5, [0]],
-  [1.5, 1,   [0]],
-  [1.5, 1.5, [0]],
-  [2,   1.5, [0]], 
+	[
+  	[1,   0.5, [0]],
+  	[1.5, 1,   [0]],
+  	[1.5, 1.5, [0]],
+  	[2,   1.5, [0]], 
 
-  [3,   2,   [1]],
-  [3,   1.5, [1]],
-  [3,   1,   [1]],
-  [3.5, 1,   [1]],
+  	[3,   2,   [1]],
+  	[3,   1.5, [1]],
+  	[3,   1,   [1]],
+  	[3.5, 1,   [1]]
+  ],
+
+  [
+  	[1,   0.75, "it should be 1"]
+  ]
 ];
 
-//unknown type (data we want to find)
-var dataU = [
-  [4,   2, "it should be 1"]
-];
+//Helpers (called here due to memory issues)
+var k = 0;
+var t = 0;
+var h = 0;
+var q = 0;
+var b = 0;
 
 //asking for the size of the network
-var NumOfHidLayers = 1//prompt("The number hidden layers:");
+var NumOfHidLayers = prompt("The number hidden layers:");
 if(NumOfHidLayers == 0) {EveryHidLayerSize = 0;} else {
-	var EveryHidLayerSize = 2//prompt("The size of each hidden layer:");
+	var EveryHidLayerSize = prompt("The size of each hidden layer:");
 };
-var NumOfTrainingLoop = 50000//prompt("The number training loops:");
-var TrainingRate = 0.1//prompt("The training rate (slope * X)\n  (exp: slope * 0.5):");
+var NumOfTrainingLoop = prompt("The number training loops:");
+var TrainingRate = prompt("The training rate (slope * X)\n  (exp: slope * 0.5):");
 
 
 //Weights config (bias included)
-var NumOfInputLayers = data[0].length - 1;
-var NumOfOutputs = data[0][data[0].length - 1].length
+var NumOfInputLayers = data[0][0].length - 1;
+var NumOfOutputs = data[0][0][data[0][0].length - 1].length
 var NumOfWeights = (NumOfInputLayers * EveryHidLayerSize) + ( (NumOfHidLayers - 1) * Math.pow(EveryHidLayerSize, 2) ) + (EveryHidLayerSize * NumOfOutputs);
   if(NumOfHidLayers == 0) {NumOfWeights = NumOfInputLayers * NumOfOutputs};
 
 var bias = [0]
-for(count = 0; count < (NumOfHidLayers + 1); count++) {
+for(count = 0; count <= NumOfHidLayers; count++) {
   bias[count] = Math.random()
 };
 
-var k = 0;
-var t = 0;
 var w = []
+k = 0;
+t = 0;
 for(count = 0; count <= NumOfHidLayers; count++) {w[count] = [];};
   if(EveryHidLayerSize == 0) {w[0] = [];}
 for(count = 0; count < NumOfWeights; count++) {
@@ -50,15 +58,17 @@ for(count = 0; count < NumOfWeights; count++) {
   };
 };
 
+//Defining sigmoid
+function Sig(x) {return (1 / (1 + Math.pow(2.718, -x))); };
 
-//Neural net Result (i: data selector)
+
+//Neural net Result (i: data selector, type: training or unknown)
 var NN = [];
-function NN_Construction(i) {
+function NN_Construction(type, i) {
 	//Neural nets config **********************************************************
    
  	  //reseting all nodes to 0  
     var node = [[]];
-    NN = [];
     k = 0;
     t = 0;
     for(count = 0; count < NumOfOutputs; count++) {NN[count] = 0};
@@ -76,7 +86,7 @@ function NN_Construction(i) {
 		k = 0
     t = 0
 		for(count = 0; count < (NumOfInputLayers * EveryHidLayerSize); count++) {
-      node[0][k] += data[i][t] * w[0][count];
+      node[0][k] += data[type][i][t] * w[0][count];
       t++;
       if(t == NumOfInputLayers) {
      	 node[0][k] += bias[0];
@@ -88,9 +98,9 @@ function NN_Construction(i) {
 	  //Rest of the hidden layers
     k = 1;
     t = 0;
-    var h = 0;
-    var q = 0;
-    var b = 1;
+    h = 0;
+    q = 0;
+    b = 1;
 		for(count = 0; count < ( (NumOfHidLayers - 1) * Math.pow(EveryHidLayerSize, 2) ); count++) {
       node[k][t] += node[k - 1][h] * w[k][q];
       h++;
@@ -131,7 +141,7 @@ function NN_Construction(i) {
       b = 0
       q = 0
     	for(count = 0; count < (NumOfInputLayers * NumOfOutputs); count++) {
-      	NN[k] += data[i][t] * w[0][q];
+      	NN[k] += data[type][i][t] * w[0][q];
       	t++;
         q++;
       	if(t == NumOfInputLayers) {
@@ -145,71 +155,79 @@ function NN_Construction(i) {
 };
 
 
-
-
-//Defining sigmoid
-function Sig(x) {return (1 / (1 + Math.pow(2.718, -x))); };
-
-
-
-
-//Defining Derivative of sigmoid with respect to NN
+//Defining Derivative of sigmoid with respect to a variable in NN (I know the 2 is unnecessary)
 function dSig_dNN(i, NN, counter) {
-	return( 2 * Sig(NN[counter]) * (1 - Sig(NN[counter])) * (Sig(NN[counter]) - data[i][NumOfInputLayers][counter]) * NN[counter] );
-}
+	return( 2 * NN * Sig(NN) * (1 - Sig(NN)) * (Sig(NN) - data[0][i][NumOfInputLayers][counter]) );
+};
 
-
-//Slope and stuff (i: data selector, r: is it a weight or bias, k,t,b: describing variuable)
-function SlopeOfCost(i, r, k, t, b) {
+//Slope and stuff (i: data selector, type: is it a weight or bias, describers: describing variuable)
+function SlopeOfCost(type, i, LayerDescriber, NumDescriber) {
 	//Cost Slope config **********************************************************
-  
- 	  //reseting all nodes to 0  
-    var node = [[]];
-    var NN = [];
-    k = 0;
-    t = 0;
-    for(count = 0; count < NumOfOutputs; count++) {NN[count] = 0};
-    for(count = 0; count < NumOfHidLayers; count++) {node[count] = [];};
-		for(count = 0; count < (NumOfHidLayers * EveryHidLayerSize); count++) {
-			node[k][t] = 0;
-      t++;
-      if(t == EveryHidLayerSize) {
-    	  k++;
-    	  t = 0;
-      };
-		};
+		var TempW = []
+    var TempB = []
+		k = 0;
+		t = 0;
+		for(count = 0; count <= NumOfHidLayers; count++) {
+    TempW[count] = [];
+    TempB[count] = bias[count];
+    };
+  		if(EveryHidLayerSize == 0) {TempW[0] = [];}
+		for(count = 0; count < NumOfWeights; count++) {
+  		TempW[k][t] = w[k][t];
+  		t++;
+  			if(t == Math.pow(EveryHidLayerSize, 2)) {
+    			k++;
+    			t = 0;
+  			};
+			};
+    
     
     //Derivative for Weights
-    if(r == 1) {
-    	var TemporaryValue = w[k][t]
-      //reseting all other weights to 0 in the layer
-			let w = []
-			for(count = 0; count <= NumOfHidLayers; count++) {w[count] = [];};
-  			if(EveryHidLayerSize == 0) {w[0] = [];}
-			for(count = 0; count < Math.pow(EveryHidLayerSize, 2); count++) {
-  			w[k][count] = 0;
-			};
-      w[k][t] = TemporaryValue
+    	if(type == 0) {
+    		var TargetVariable = w[LayerDescriber][NumDescriber]
+				k = 0;
+				t = 0;
+      	for(count = 0; count < Math.pow(EveryHidLayerSize, 2); count++) {
+  				w[LayerDescriber][count] = 0;
+				};
+      	w[LayerDescriber][NumDescriber] = TargetVariable
+        
+        for(count = LayerDescriber; count <= NumOfHidLayers; count++) {bias[count] = 0;};
     };
+    //...................
     
-    
-    if(r == 0) {
-    	var TemporaryValue = bias[b]
-			let w = []
-			for(count = 0; count < Math.pow(EveryHidLayerSize, 2); count++) {
-  			w[0][count] = 0;
-			};
-      
-      let bias = []
-			for(count = 0; count < (NumOfHidLayers + 1); count++) {
-  			bias[count] = 0
-			};
-      bias[b] = TemporaryValue
+    //Derivative for Bias
+    	if(type == 1) {
+    		var TargetVariable = bias[LayerDescriber]
+				k = 0;
+				t = 0;
+      	for(count = 0; count < Math.pow(EveryHidLayerSize, 2); count++) {
+  				w[0][count] = 0;
+				};
+        
+        for(count = 0; count <= NumOfHidLayers; count++) {bias[count] = 0;};
+        
+      	bias[LayerDescriber] = TargetVariable
     };
+    //..................
     
-    NN_Construction(i)
-    var Slope;
+        
+    NN_Construction(0, i)
+    var Slope = 0;
     for(count = 0; count < NumOfOutputs; count++) { Slope += dSig_dNN(i, NN, count) };
+    
+     k = 0;
+     t = 0;
+     for(count = 0; count < NumOfWeights; count++) {
+			 w[k][t] = TempW[k][t];
+  		 t++;
+  		 if(t == Math.pow(EveryHidLayerSize, 2)) {
+    		 k++;
+    		 t = 0;
+  		 };
+		 };
+        
+        for(count = 0; count <= NumOfHidLayers; count++) {bias[count] = TempB[count];};
     
     
 	return(Slope)
@@ -219,42 +237,44 @@ function SlopeOfCost(i, r, k, t, b) {
 
 function Training(NumOfTrainingLoop, TrainingRate) {
 //training **************************************************
+	//SlopeOfCost(i, type, LayerDescriber, NumDescriber)
   var i;
-  var k = -1;
-  var t = -1;
-  var b = -1;
-  var q = -1;
+  k = 0;
+  t = 0;
+  b = 0;
+  q = 0;
+  var change;
+  //SlopeOfCost(type, i, LayerDescriber, NumDescriber)
   for(count = 0; count < NumOfTrainingLoop; count++) {
-    //Find a randome input data
+    //selecting a randome input data
     i = Math.floor(Math.random() * NumOfInputLayers)
-    q++
-  	if(q < NumOfWeights) {
-    	//w[k][t]
-      t++;
-  		if(t == (Math.pow(EveryHidLayerSize, 2) - 1) ) {
-    		k++;
-    		t = -1;
-      };
+		switch (true) {
+  		case (q < NumOfWeights): 
+    		//w[k][t]
+      	change = SlopeOfCost(0, i, k, t) * TrainingRate
+      	w[k][t] -= change
+      	t++;
+  			if(t == Math.pow(EveryHidLayerSize, 2) ) {
+    			k++;
+    			t = 0;
+      	};
+  			break;
       
-      var change = SlopeOfCost(i, 1, k, t, b) * TrainingRate
-      w[k][t] -= change
-
-    
-  	} else {
-    
-    	if(q < NumOfWeights + bias.length) {
-    		//bias[b]
+  		case (q < (NumOfWeights + bias.length) &&  q >= NumOfWeights):
+				//bias[b]
+      	change = SlopeOfCost(1, i, b, 0) * TrainingRate;
+      	bias[b] -= change;
       	b++;
-      	var change = SlopeOfCost(i, 1, k, t, b) * TrainingRate
-        bias[b] -= change
-      	
-      } else {
-      	k = -1
-  			t = -1
-        b = -1;
-  	  	q = -1; 
-      };
-    };
+      	break;
+      
+  		case (q == NumOfWeights + bias.length):
+    		k = 0;
+  			t = 0;
+  			b = 0;
+  			q = 0;
+    		break;
+		};
+    q++
   };
 //***************************************************************
 };
@@ -264,6 +284,6 @@ Training(NumOfTrainingLoop, TrainingRate)
 
 
 //request for answer
-
-alert(Sig(NN[0]))
+NN_Construction(1, 0)
+alert(Sig(NN))
 
